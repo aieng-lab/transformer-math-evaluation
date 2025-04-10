@@ -1,4 +1,6 @@
 
 .idea/
-
-src/util/__pycache__/
+data/
+results
+**__pycache__**
+**.pdf
