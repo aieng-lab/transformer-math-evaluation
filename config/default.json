@@ -1,0 +1,32 @@
+{
+  "n": 5,
+  "epochs": 10,
+  "save_model": "False",
+  "runs": {
+    "nfir": {
+      "id": "formula-ir",
+      "data": "nfir-reduced-250",
+      "key_lhs": "name",
+      "key_rhs": "formula",
+      "max_length": 256,
+      "advanced_metrics": "True"
+    },
+    "ffir": {
+      "id": "formula-ir",
+      "data": "ffir-reduced-250-eval",
+      "key_lhs": "formula1",
+      "key_rhs": "formula2",
+      "key_eval": "formula1_original",
+      "max_length": 512
+    },
+    "nfir-split": {
+      "id": "formula-ir",
+      "data": "nfir-reduced-250",
+      "split_by_formula_name_id": "True",
+      "key_lhs": "name",
+      "key_rhs": "formula",
+      "max_length": 256,
+      "advanced_metrics": "True"
+    }
+  }
+}

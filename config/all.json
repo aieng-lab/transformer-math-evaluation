@@ -1,0 +1,44 @@
+{
+  "n": 5,
+  "epochs": 10,
+  "runs": {
+    "nfir": {
+      "id": "formula-ir",
+      "data": "nfir-reduced-250",
+      "key_lhs": "name",
+      "key_rhs": "formula",
+      "max_length": 256,
+      "advanced_metrics": "True"
+    },
+    "nfir-split": {
+      "id": "formula-ir",
+      "data": "nfir-reduced-250",
+      "split_by_formula_name_id": "True",
+      "key_lhs": "name",
+      "key_rhs": "formula",
+      "max_length": 256,
+      "bert_freeze": "True",
+      "advanced_metrics": "True"
+    },
+    "ffir": {
+      "id": "formula-ir",
+      "data": "ffir-reduced-250",
+      "key_lhs": "formula1",
+      "key_rhs": "formula2",
+      "max_length": 512
+    },
+    "math-structure-score": {
+      "id": "math-structure-score",
+      "data_sep": "structure.json",
+      "data_equ": "structure-equalities.json"
+    },
+    "math-structure-score-sep": {
+      "id": "math-structure-score",
+      "data_sep": "structure.json"
+    },
+    "math-structure-score-equ": {
+      "id": "math-structure-score",
+      "data_equ": "structure-equalities.json"
+    }
+  }
+}
