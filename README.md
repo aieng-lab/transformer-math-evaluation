@@ -26,7 +26,7 @@ pip install -r requirements.txt
 ```bash
 python src/util/generate_data.py
 ```
-This script generates the data splits of the large pre-training datasets [NMF](https://huggingface.co/datasets/ddrg/named_math_formulas) and [MFR](https://huggingface.co/datasets/ddrg/math-formula-retrieval). However, for NMF, a special split is also available on [Hugging Face](todo) along with additional meta data (e.g., which [MAMUT](https://arxiv.org/abs/2502.20855) strategies have been used to generate a false example). This enriched data is used by default in the config files.
+This script generates the data splits of the large pre-training datasets [NMF](https://huggingface.co/datasets/ddrg/named_math_formulas) and [MFR](https://huggingface.co/datasets/ddrg/math-formula-retrieval). However, for NMF, a special split is also available on [Hugging Face](https://huggingface.co/datasets/ddrg/named_math_formulas_ft) along with additional meta data (e.g., which [MAMUT](https://arxiv.org/abs/2502.20855) strategies have been used to generate a false example). This enriched data is used by default in the config files.
 
 ## Usage
 
