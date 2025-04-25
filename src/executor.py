@@ -1,4 +1,3 @@
-import comet_ml
 import argparse
 import time
 from datetime import timedelta
@@ -6,7 +5,10 @@ from datetime import timedelta
 import humanize
 
 from finetuning.formula_ir import run as formula_ir_run
-from finetuning.arqmath.arqmath import run as arqmath_run, run_eval as arqmath_eval
+try:
+    from finetuning.arqmath.arqmath import run as arqmath_run, run_eval as arqmath_eval
+except ImportError:
+    pass
 from analysis.structure import run as structure_run
 
 import json
@@ -15,7 +17,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-model', type=str, required=True)
     parser.add_argument('-config', type=str, required=False, default='../config/default.json')
-    parser.add_argument('-comet', type=str, required=False, help='Comet ML API Key')
+    #parser.add_argument('-comet', type=str, required=False, help='Comet ML API Key')
     parser.add_argument('-data_dir', type=str, default='', help='extern data directory')
     parser.add_argument('-output_dir', type=str, default='results/')
     parser.add_argument('-part', type=int)
@@ -25,15 +27,18 @@ def parse_args():
 run_mapping = {
     'formula-ir': formula_ir_run,
     'math-structure-score': structure_run,
-    'arqmath': arqmath_run,
-    'arqmath-eval': arqmath_eval,
+    #'arqmath': arqmath_run,
+    #'arqmath-eval': arqmath_eval,
 }
+
+from transformers import logging as hf_logging
+
+# Set the logging level for the Hugging Face `transformers` library
+hf_logging.set_verbosity_info()
+
 
 if __name__ == '__main__':
     args = parse_args()
-
-    if args.comet:
-        comet_ml.config.save(api_key=args.comet)
 
     config_file = args.config
     if config_file.endswith('.json'):

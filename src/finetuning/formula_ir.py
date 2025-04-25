@@ -2,16 +2,12 @@ import json
 import os
 from pathlib import Path
 
-import comet_ml
 import scipy
 import random
 
 import sklearn.metrics
-from comet_ml import Experiment
 
 import re
-from transformers.integrations import CometCallback
-
 import numpy as np
 import torch
 
@@ -20,7 +16,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, TrainingArguments, Trainer
 
 from util.bert import BertForInformationRetrieval
-from util.training import CustomTrainer, CometMLCallback, _average_dicts
+from util.training import CustomTrainer, _average_dicts
 from util.data import create_data
 
 
@@ -82,6 +78,14 @@ def preprocess_witiko(text):
     return preprocessed_text
 
 def run_ir(input_model, output_model, data, **kwargs):
+    output = output_model.removesuffix('/')
+    file_path = output + '/metrics.json'
+    os.makedirs(os.path.dirname(output), exist_ok=True)
+
+    if os.path.exists(file_path):
+        print("File %s already exists, skip this run" % file_path)
+        return json.load(open(file_path, 'r', encoding='utf8'))
+
     key_lhs = kwargs['key_lhs']
     key_rhs = kwargs['key_rhs']
     key_label = 'label'
@@ -102,7 +106,16 @@ def run_ir(input_model, output_model, data, **kwargs):
         preprocessing = preprocess_witiko
 
     iteration = kwargs.get('iteration', 0)
-    data = create_data(data, max_size=kwargs.get('max_size', None), head=kwargs.get('head', None), split_by_formula_name_id=kwargs.get('split_by_formula_name_id', False), epoch_dependant=True, data_filter=data_filter, batch_size=batch_size, preprocessing=preprocessing, seed=iteration)
+    data = create_data(data,
+                       max_size=kwargs.get('max_size', None),
+                       split_by_formula_name_id=kwargs.get('split_by_formula_name_id', False),
+                       epoch_dependent=kwargs.get('epoch_dependent', True),
+                       use_challenging_falses=kwargs.get('use_challenging_falses', True),
+                       data_filter=data_filter,
+                       batch_size=batch_size,
+                       preprocessing=preprocessing,
+                       seed=iteration,
+                       )
     train_dataset = data['train']
     test_dataset = data['test']
     if 'validation' in data:
@@ -154,9 +167,13 @@ def run_ir(input_model, output_model, data, **kwargs):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     training_args = TrainingArguments(
         output_dir=output_dir,  # Directory to save checkpoints and results
-        metric_for_best_model="accuracy",
+        metric_for_best_model="f1",
+        greater_is_better=True,
+        load_best_model_at_end=True,
         evaluation_strategy='epoch',
-        report_to=['comet_ml'],
+        #eval_steps=10,
+        #save_strategy='no',
+        save_strategy='epoch',
         num_train_epochs=kwargs.get('epochs', 3),
         per_device_train_batch_size=batch_size,  # Batch size for training
         per_device_eval_batch_size=batch_size,  # Batch size for evaluation
@@ -164,10 +181,9 @@ def run_ir(input_model, output_model, data, **kwargs):
         save_total_limit=1,
         dataloader_pin_memory=False,
         learning_rate=2e-5,
-        warmup_steps=200
+        warmup_steps=200,
     )
 
-    experiment = Experiment(project_name="Math-IR-Finetuning-%s" % input_model, workspace='math-ir-finetuning')
     def compute_metrics(pred):
         predictions, labels = pred
         if len(predictions.shape) == 1 and len(predictions) == len(labels):
@@ -179,21 +195,30 @@ def run_ir(input_model, output_model, data, **kwargs):
         precision = precision_score(labels, predicted_labels)
         f1 = f1_score(y_true=labels, y_pred=predicted_labels)
         recall = recall_score(y_true=labels, y_pred=predicted_labels)
-        #experiment.log_metric('accuracy', accuracy)
-        #experiment.log_metric('precision', precision)
         return {'accuracy': accuracy, 'precision': precision, "recall": recall, "f1": f1}
 
-    trainer = CustomTrainer( #CustomTrainer(
+    def make_state_dict_contiguous(model):
+        original_state_dict = model.state_dict
+
+        def contiguous_state_dict(*args, **kwargs):
+            sd = original_state_dict(*args, **kwargs)
+            for k, v in sd.items():
+                if isinstance(v, torch.Tensor) and not v.is_contiguous():
+                    sd[k] = v.contiguous()
+            return sd
+
+        model.state_dict = contiguous_state_dict
+    make_state_dict_contiguous(model)
+
+    trainer = CustomTrainer(
         model,
         training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
-        callbacks=[CometCallback(), CometMLCallback(experiment)]
     )
 
     trainer.train()
-    experiment.end()
 
     if kwargs.get('save_model', False):
         trainer.save_model(output_dir=output_model)
@@ -225,13 +250,12 @@ def run_ir(input_model, output_model, data, **kwargs):
                 "accuracy": accuracy,
                 "precision": precision,
                 "recall": recall,
-                "f1_score": f1,
+                "f1": f1,
                 "n": len(pd_test_dataset),
             }
 
         # compute more sophisticated IR metrics
-
-        predictions = scipy.special.softmax(predictions, axis=1)[:, 1] # prediction score (continous) for being relevant (class label 1)
+        predictions = scipy.special.softmax(predictions, axis=1)[:, 1] # prediction score (continuous) for being relevant (class label 1)
 
         sub_metrices = []
         for query, df in pd_test_dataset.groupby(key_lhs):
@@ -246,7 +270,7 @@ def run_ir(input_model, output_model, data, **kwargs):
 
             # Compute nDCG (Normalized Discounted Cumulative Gain)
             try:
-                # Jarvelin score, see https://github.com/scikit-learn/scikit-learn/blob/d99b728b3a7952b2111cf5e0cb5d14f92c6f3a80/sklearn/metrics/_ranking.py#L1402
+                # see https://github.com/scikit-learn/scikit-learn/blob/d99b728b3a7952b2111cf5e0cb5d14f92c6f3a80/sklearn/metrics/_ranking.py#L1402
                 ndcg = sklearn.metrics.ndcg_score([idx_labels], [idx_predictions])
             except Exception as e:
                 ndcg = None
@@ -271,7 +295,7 @@ def run_ir(input_model, output_model, data, **kwargs):
             "accuracy": accuracy,
             "precision": precision,
             "recall": recall,
-            "f1_score": f1,
+            "f1": f1,
             "n": len(pd_test_dataset),
             **sub_metrices
         }
@@ -296,7 +320,7 @@ def run_ir(input_model, output_model, data, **kwargs):
             strategy_metrics = compute_metrics(preds, labels, ds, only_basics=True)
             metrics[strategy] = strategy_metrics
 
-        for stat in ['strategy_count', 'is_text', 'formula_name_id']:
+        for stat in ['strategy_count', 'is_text', 'formula_name_id', 'substituted', 'substituted_var', 'substituted_fnc']:
             unique = set(df[stat])
             sub_stats = {}
             for u in unique:
@@ -308,6 +332,9 @@ def run_ir(input_model, output_model, data, **kwargs):
                 sub_stats[u] = strategy_metrics
             metrics[stat] = sub_stats
 
+    # save metrics
+    json.dump(metrics, open(file_path, 'w+', encoding='utf8'), indent=1)
+
     return metrics
 
 
@@ -315,7 +342,6 @@ def run_multiple_times(n=5, *args, **kwargs):
     metrices = []
 
     base_output = kwargs.get('output_model')
-    averaged_metrices = {}
     for i in range(n):
         print("Start Run %d" % (i+1))
 
@@ -333,8 +359,8 @@ def run_multiple_times(n=5, *args, **kwargs):
         print("Finished Run %d" % (i+1))
         print(metrics)
 
-        averaged_metrices = _average_dicts(metrices)
-        print("Averaged: %s" % averaged_metrices)
+    averaged_metrices = _average_dicts(metrices)
+    print("Averaged: %s" % averaged_metrices)
 
     return averaged_metrices
 
@@ -345,19 +371,23 @@ def run_for_input_models(models, *args, **kwargs):
 
     base_output_model = output_model.removesuffix('/') + '/'
     for model in models:
-        print("Run model: %s" % model)
-        model_name = model.split('/')[-1]
-        if base_output_model:
-            kwargs['output_model'] = base_output_model + model_name
-        kwargs['input_model'] = model
-        m = run_multiple_times(*args, **kwargs)
-        metrices[model] = m
-        print(metrices)
-
         output = base_output_model.removesuffix('/')
+        model_name = model.split('/')[-1]
         file_path = output + '/' + model_name + '.json'
         os.makedirs(os.path.dirname(output), exist_ok=True)
-        json.dump(m, open(file_path, 'w+', encoding='utf8'), indent=1)
+        if os.path.exists(file_path):
+            print("File %s already exists, skip this run" % file_path)
+            m = json.load(open(file_path, 'r', encoding='utf8'))
+        else:
+            print("Run model: %s" % model)
+            if base_output_model:
+                kwargs['output_model'] = base_output_model + model_name
+            kwargs['input_model'] = model
+            m = run_multiple_times(*args, **kwargs)
+            json.dump(m, open(file_path, 'w+', encoding='utf8'), indent=1)
+
+        metrices[model] = m
+        print(metrices)
 
     return metrices
 

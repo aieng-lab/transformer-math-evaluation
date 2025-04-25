@@ -75,12 +75,24 @@ class BertForInformationRetrievalV2(nn.Module):
         # token_type_ids are not used by witiko/mathberta
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=kwargs.get('token_type_ids'))
         cls_output = outputs.pooler_output
-        #cls_output = outputs.last_hidden_state[:, 0, :] #+ todo remove
         logits = self.ir_classification_layer(cls_output)
         probability = torch.sigmoid(logits.squeeze(-1))
         return probability
 
     def save_pretrained(self, output_directory):
+
+        def make_state_dict_contiguous(model):
+            original_state_dict = model.state_dict
+
+            def contiguous_state_dict(*args, **kwargs):
+                sd = original_state_dict(*args, **kwargs)
+                for k, v in sd.items():
+                    if isinstance(v, torch.Tensor) and not v.is_contiguous():
+                        sd[k] = v.contiguous()
+                return sd
+
+        #make_state_dict_contiguous(self.bert)
+
         pathlib.Path(output_directory).mkdir(parents=True, exist_ok=True)
         # Save the model's state_dict, configuration, and tokenizer
         torch.save(self.state_dict(), f"{output_directory}/pytorch_model.bin")

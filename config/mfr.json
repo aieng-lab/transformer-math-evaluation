@@ -1,0 +1,13 @@
+{
+  "n": 5,
+  "epochs": 10,
+  "runs": {
+    "mfr": {
+      "id": "formula-ir",
+      "data": "math_formula_retrieval_250",
+      "key_lhs": "formula1",
+      "key_rhs": "formula2",
+      "max_length": 512
+    }
+  }
+}

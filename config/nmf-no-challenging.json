@@ -1,0 +1,15 @@
+{
+  "n": 5,
+  "epochs": 10,
+  "runs": {
+    "nmf-no-challenging": {
+      "id": "formula-ir",
+      "data": "ddrg/named_math_formulas_ft",
+      "key_lhs": "name",
+      "key_rhs": "formula",
+      "max_length": 256,
+      "advanced_metrics": "True",
+      "use_challenging_falses": "False"
+    }
+  }
+}

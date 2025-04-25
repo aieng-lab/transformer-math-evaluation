@@ -1,4 +1,3 @@
-import comet_ml
 from typing import Tuple, Optional, Union, Dict, Any, List
 
 import pandas as pd
@@ -10,54 +9,6 @@ from transformers import Trainer, TrainerCallback
 from transformers.trainer_pt_utils import nested_detach
 from transformers.utils import is_sagemaker_mp_enabled
 import subprocess
-
-class CometMLCallback(TrainerCallback):
-    def __init__(self, experiment, log_interval=2):
-        super().__init__()
-        self.experiment = experiment
-        self.log_interval = log_interval
-        self.step = 0
-
-    def on_train_batch_end(self, args, state, control, model, data_collator, trainer, **kwargs):
-        # Access the loss from the trainer's state
-        loss = state.log_history[-1]["loss"]
-
-        # Log the loss using your preferred logging method (e.g., print or a logging library)
-        print(f"Train Loss: {loss}")
-
-    def on_eval_batch_end(self, args, state, control, model, data_collator, trainer, **kwargs):
-        # Access the loss from the trainer's state
-        loss = state.log_history[-1]["loss"]
-
-        # Log the loss using your preferred logging method (e.g., print or a logging library)
-        print(f"Eval Loss: {loss}")
-
-    def on_step_end(self, args, state, control, **kwargs):
-        # Called at the end of each training step
-        self.step += 1
-        if self.step % self.log_interval == 0:
-            # Log custom metrics to Comet ML here
-           # loss = state.log_history[-1]['loss']
-            #accuracy = state.log_history[-1]['accuracy']
-            #self.experiment.log_metric("loss", loss, step=self.step)
-            #self.experiment.log_metric("accuracy", accuracy, step=self.step)
-
-            try:
-                # Run the nvidia-smi command and capture its output
-                output = subprocess.check_output(
-                    ["nvidia-smi", "--query-gpu=utilization.gpu,utilization.memory", "--format=csv,noheader,nounits"])
-                gpu_utilization, memory_utilization = map(float, output.decode("utf-8").strip().split(','))
-
-                # Log GPU metrics to Comet ML
-                self.experiment.log_metric("GPU Utilization", gpu_utilization, step=state.global_step)
-                self.experiment.log_metric("Memory Utilization", memory_utilization, step=state.global_step)
-
-                #print(f"GPU Utilization: {gpu_utilization}%")
-                #print(f"Memory Utilization: {memory_utilization}%")
-
-            except Exception as e:
-                print(f"Error while logging GPU metrics: {str(e)}")
-
 
 def precision_at_k(df: pd.DataFrame, k: int = 3, y_test: str = 'y_actual', y_pred: str = 'y_recommended') -> float:
     """
@@ -97,7 +48,7 @@ loss = CrossEntropyLoss()
 class CustomTrainer(Trainer):
 
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
         labels = inputs.pop("labels")
         # forward pass
         outputs = model(**inputs)
@@ -218,6 +169,12 @@ class CustomTrainer(Trainer):
             logits = logits[0]
 
         return (loss, logits, labels)
+
+    def _issue_warnings_after_load(self, load_result):
+        if load_result is None:
+            return 
+        
+        super()._issue_warnings_after_load(load_result)
 
 def _average_dicts(data):
     if len(data) == 0:

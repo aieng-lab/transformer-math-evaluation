@@ -1,6 +1,7 @@
 
 .idea/
 data/
+models/
 results
 **__pycache__**
 **.pdf

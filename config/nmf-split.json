@@ -1,0 +1,16 @@
+{
+  "n": 5,
+  "epochs": 10,
+  "runs": {
+    "nmf-split": {
+      "id": "formula-ir",
+      "data": "ddrg/named_math_formulas_ft",
+      "split_by_formula_name_id": "True",
+      "key_lhs": "name",
+      "key_rhs": "formula",
+      "max_length": 256,
+      "bert_freeze": "True",
+      "advanced_metrics": "True"
+    }
+  }
+}

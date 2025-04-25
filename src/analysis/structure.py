@@ -18,7 +18,7 @@ import shutil
 - tokens: tokenized sequence to be applied to the model
 - index_groups: groups indices of tokens belonging to the same mathematical symbol
 - associated_tokens: associates related mathematical token indices according to the considered relation
-- save_attentions: whether all aggregrated attention matrices of all attention heads should be contained in the output or not
+- save_attentions: whether all aggregated attention matrices of all attention heads should be contained in the output or not
 - ignore_cls_sep: whether to ignore attentions to and from the cls and sep tokens or not for calculating the metrices (those values are always set to 0 in outputted attentions for visualization)
 """
 def _compute_attention_scores(model, tokens, index_groups, associated_tokens, save_attentions=False, ignore_cls_sep=False):
@@ -1031,9 +1031,6 @@ class TestDataGroup:
                 """
 
                 html_data = html_data.replace('.attr("stroke-width', '.attr("fill", "none").attr("stroke-width')
-                #html_data = html_data.replace('renderAttention(svg, layerAttention);', 'renderAttention(svg, layerAttention);renderCorrect(svg, layerCorrect);')
-                #html_data = html_data.replace('const layerAttention = attnData.attn[config.layer_seq];', 'const layerAttention = attnData.attn[config.layer_seq];const layerCorrect = [[%s]]' % correct)
-                #html_data = html_data.replace('function renderAttention(', js + '\nfunction renderAttention(')
 
                 # remove attention values below threshold
                 threshold = 0.05
@@ -1266,30 +1263,12 @@ def get_models_from_path(path):
 
 
 if __name__ == '__main__':#
-    models = get_models_from_path('../../../Masterarbeit/final/models/pretraining')
-    baselines = ['AnReu/math_pretrained_bert', 'microsoft/deberta-v3-base', 'bert-base-cased',  'allenai/scibert_scivocab_cased'] # 'witiko/mathberta',
+    models = ['bert-base-cased']
 
-
-    run(models + baselines,
+    run(models,
               data_sep='../../data/structure.json',
               data_equ='../../data/structure_equalities.json',
               plot=True,
               save_attentions=False,
               output='../../results/structure/all/structure.json'
               )
-    if False:
-        run(models + baselines,
-                      data_sep='../../data/structure.json',
-                      #data_equ='../../data/structure_equalities.json',
-                      plot=False,
-                      save_attentions=False,
-                      output='../../results/structure/sep/structure.json'
-                      )
-
-        run(models + baselines,
-                      #data_sep='../../data/structure.json',
-                      data_equ='../../data/structure_equalities.json',
-                      plot=False,
-                      save_attentions=False,
-                      output='../../results/structure/equ/structure.json'
-                      )
